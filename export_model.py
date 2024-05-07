@@ -19,21 +19,64 @@ from detectron2.export import (
 )
 from detectron2.modeling import GeneralizedRCNN, RetinaNet, build_model
 from detectron2.modeling.postprocessing import detector_postprocess
-from detectron2.projects.point_rend import add_pointrend_config
+# from detectron2.projects.point_rend import add_pointrend_config
 from detectron2.structures import Boxes
 from detectron2.utils.env import TORCH_VERSION
 from detectron2.utils.file_io import PathManager
 from detectron2.utils.logger import setup_logger
+from detectron2.data.datasets import register_coco_instances
+from detectron2 import model_zoo
+from detectron2.data.catalog import DatasetCatalog
 
+
+from detectron2.data import MetadataCatalog
 
 def setup_cfg(args):
     cfg = get_cfg()
-    # cuda context is initialized before creating dataloader, so we don't fork anymore
+    # # cuda context is initialized before creating dataloader, so we don't fork anymore
+    # cfg.DATALOADER.NUM_WORKERS = 0
+    # add_pointrend_config(cfg)
+    # cfg.merge_from_file(args.config_file)
+    # cfg.merge_from_list(args.opts)
+    # cfg.freeze()
+
+    register_coco_instances('self_coco_train', {},
+                            './my_coco_dataset/data_dataset_coco_train/annotations.json',
+                            './my_coco_dataset/data_dataset_coco_train')
+    register_coco_instances('self_coco_val', {},
+                            './my_coco_dataset/data_dataset_coco_val/annotations.json',
+                            './my_coco_dataset/data_dataset_coco_val')
+
+    coco_val_metadata = MetadataCatalog.get("self_coco_val")
+    dataset_dicts = DatasetCatalog.get("self_coco_val")
+    coco_train_metadata = MetadataCatalog.get("self_coco_train")
+    dataset_dicts1 = DatasetCatalog.get("self_coco_train")
+    coco_val_metadata
+    coco_train_metadata
+
+    # visualize training data
+    my_dataset_train_metadata = MetadataCatalog.get("self_coco_train")
+    dataset_dicts = DatasetCatalog.get("self_coco_train")
+
+    cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
+    cfg.DATASETS.TRAIN = ("self_coco_train",)
+    cfg.DATASETS.TEST = ()
     cfg.DATALOADER.NUM_WORKERS = 0
-    add_pointrend_config(cfg)
-    cfg.merge_from_file(args.config_file)
-    cfg.merge_from_list(args.opts)
-    cfg.freeze()
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
+    cfg.SOLVER.IMS_PER_BATCH = 2
+    cfg.SOLVER.BASE_LR = 0.00025
+    cfg.SOLVER.MAX_ITER = 400000 // 4000
+    cfg.MODEL.ROI_HEADS.NUM_CLASSES = 4
+    cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set the testing threshold for this model
+    cfg.DATASETS.TEST = ("self_coco_val",)
+    cfg.MODEL.DEVICE = 0
+
+    # visualize training data
+    # my_dataset_train_metadata = MetadataCatalog.get("self_coco_train")
+    # dataset_dicts = DatasetCatalog.get("self_coco_train")
+
+
     return cfg
 
 
